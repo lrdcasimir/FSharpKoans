@@ -50,13 +50,91 @@ module ``about the stock example`` =
           "2012-03-02,32.31,32.44,32.00,32.08,47314200,32.08";
           "2012-03-01,31.93,32.39,31.85,32.29,77344100,32.29";
           "2012-02-29,31.89,32.00,31.61,31.74,59323600,31.74"; ]
-    
+
+    let breakOutRow (r:string) = 
+        r.Split([|','|])
+
+    let findColumnIndex (columnName:string) (row:seq<string>)  =
+        row
+        |> Seq.map breakOutRow
+        |> Seq.head 
+        |> Seq.findIndex (fun c -> c.Equals columnName)
+    let openColumnIndex = findColumnIndex "Open"
+    let closeColumnIndex = findColumnIndex "Close"
+    let dateIndex = findColumnIndex "Date"
+
+    let extractColumnValue columnIndex transform (row:string[]) =
+        row
+        |> Seq.skip columnIndex
+        |> Seq.head
+        |> transform
+
+    let extractColumnFloatValue columnIndex row =
+        row
+        |> extractColumnValue columnIndex System.Double.Parse
+
+    let findColumnValues  (columnIndex:int) (rows:list<string>) = 
+        rows
+        |> List.tail
+        |> List.map breakOutRow
+        |> List.map (extractColumnValue columnIndex id)
+
+            
+    let openCloseSpread rows row =
+        let openValue = 
+            extractColumnFloatValue (openColumnIndex rows) row
+        let closeValue = 
+            extractColumnFloatValue (closeColumnIndex rows) row
+        abs(closeValue - openValue)
+
+    let maxSpreadDate rows = 
+        rows
+        |> List.tail
+        |> List.map breakOutRow
+        |> List.maxBy (openCloseSpread rows)
+        |> extractColumnValue (dateIndex rows) id
+
+    [<Koan>]
+    let SpreadValuesWorks() =
+        let result =
+            stockData
+            |> List.tail
+            |> List.map breakOutRow
+            |> List.map (openCloseSpread stockData)
+        AssertEquality  true (result.[0] - 0.14 < 0.01)
+        AssertEquality  true (result.[1] - 0.06 < 0.01)
+
+    [<Koan>]
+    let FindOpenValuesWorks() =
+        let result = 
+            stockData
+            |> findColumnValues (openColumnIndex stockData)
+        AssertEquality result.[0] "32.40"
+
+
+    [<Koan>]
+    let BreakOutRowWorks() = 
+        let result =
+            stockData
+            |> List.map breakOutRow
+        AssertEquality result.Head.[0] "Date"
+
+    [<Koan>]
+    let OpenColumnIndexWorks() = 
+        let result = openColumnIndex stockData
+        AssertEquality result 1
+
+    [<Koan>]
+    let CloseColumnIndexWorks() =
+        let result = closeColumnIndex stockData
+        AssertEquality result 4
+
     // Feel free to add extra [<Koan>] members here to write
     // tests for yourself along the way. You can also try 
     // using the F# Interactive window to check your progress.
 
     [<Koan>]
     let YouGotTheAnswerCorrect() =
-        let result =  __
+        let result =  maxSpreadDate stockData
         
         AssertEquality "2012-03-13" result
